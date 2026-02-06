@@ -5,36 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Minecraft Portal</title>
 <style>
-  body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #0f0f14;
-    color: white;
-    text-align: center;
-  }
-  #setupBox {
-    margin-top: 120px;
-  }
-  input {
-    padding: 10px;
-    font-size: 18px;
-  }
-  button {
-    padding: 10px 20px;
-    font-size: 18px;
-    margin: 5px;
-    cursor: pointer;
-  }
-  iframe {
-    width: 100vw;
-    height: 100vh;
-    border: none;
-    display: none;
-  }
-  #msg {
-    margin-top: 15px;
-    color: #ff8080;
-  }
+  body { margin:0; font-family:Arial,sans-serif; background:#0f0f14; color:white; text-align:center; }
+  #setupBox { margin-top:120px; }
+  input { padding:10px; font-size:18px; }
+  button { padding:10px 20px; font-size:18px; margin:5px; cursor:pointer; }
+  iframe { width:100vw; height:100vh; border:none; display:none; }
+  #msg { margin-top:15px; color:#ff8080; }
 </style>
 </head>
 <body>
@@ -53,9 +29,8 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, get, update, goOffline } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, get, update, goOffline, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// 🔹 Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDmcFEoCa9W1mDXDHE8WUo4tOycLSoxneE",
   authDomain: "nebulakc-e0459.firebaseapp.com",
@@ -67,19 +42,13 @@ const firebaseConfig = {
   measurementId: "G-3MC79LHPFD"
 };
 
-// 🔹 Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// 🔹 Use UUID as key
 let userId = localStorage.getItem("userId");
-if (!userId) {
-  userId = crypto.randomUUID();
-  localStorage.setItem("userId", userId);
-}
+if (!userId) { userId = crypto.randomUUID(); localStorage.setItem("userId", userId); }
 
 const playerRef = ref(db, "players/" + userId);
-
 const setupBox = document.getElementById("setupBox");
 const iframe = document.getElementById("gameFrame");
 const msg = document.getElementById("msg");
@@ -87,97 +56,79 @@ const input = document.getElementById("usernameInput");
 const saveBtn = document.getElementById("saveBtn");
 const continueBtn = document.getElementById("continueBtn");
 
-let playerData = null;
+const bannedWords = ["fuck","shit","bitch","asshole","cunt","nigger","nigga"];
 
-// 🔹 Load player data
-get(playerRef).then(snapshot => {
-  if (!snapshot.exists() || snapshot.val() === null) {
-    msg.textContent = "You are not in the database yet. Please register your username.";
-    return;
+function containsBadWord(username){
+  const lower = username.toLowerCase();
+  for(const w of bannedWords){
+    if(lower.includes(w) || isSimilar(lower,w)) return true;
   }
+  return false;
+}
 
-  playerData = snapshot.val();
-
-  if (playerData.banned) {
-    document.body.innerHTML = `
-      <h1 style="margin-top:20%;color:red;">🚫 You are banned</h1>
-      <p>You cannot access this site.</p>
-    `;
-    return;
+function isSimilar(name, word){
+  if(name.length!==word.length) return false;
+  let diff=0;
+  for(let i=0;i<name.length;i++){
+    if(name[i]!==word[i]) diff++;
+    if(diff>1) return false;
   }
+  return diff===1;
+}
 
-  if (playerData.username) {
-    input.value = playerData.username;
-  }
+// Load player data
+get(playerRef).then(snap=>{
+  if(!snap.exists()) return;
+  const data = snap.val();
+  if(data.banned){document.body.innerHTML=`<h1 style="margin-top:20%;color:red;">🚫 You are banned</h1><p>You cannot access this site.</p>`;}
+  if(data.username) input.value=data.username;
 });
 
-// 🔹 Save / Update username
-saveBtn.onclick = async () => {
+saveBtn.onclick = async ()=>{
   const username = input.value.trim();
-  if (!username) {
-    msg.textContent = "Enter a username.";
-    return;
+  if(!username){ msg.textContent="Enter a username."; return; }
+  if(containsBadWord(username)){ msg.textContent="Username contains banned words!"; return; }
+
+  // Check duplicates
+  const allPlayers = await get(ref(db,"players"));
+  const values = allPlayers.val() || {};
+  for(const key in values){
+    if(values[key].username?.toLowerCase()===username.toLowerCase() && key!==userId){
+      msg.textContent="Username already taken!";
+      return;
+    }
   }
 
-  try {
-    await update(playerRef, {
+  try{
+    await update(playerRef,{
       username: username,
       lastUpdated: new Date().toISOString(),
       active: true,
       banned: false
     });
-    msg.style.color = "#80ff80";
-    msg.textContent = "Username updated!";
-  } catch (err) {
-    msg.style.color = "#ff8080";
-    msg.textContent = "Error saving username.";
-    console.error(err);
+    msg.style.color="#80ff80"; msg.textContent="Username updated!";
+  }catch(err){
+    msg.style.color="#ff8080"; msg.textContent="Error saving username."; console.error(err);
   }
 };
 
-// 🔹 Continue button
-continueBtn.onclick = async () => {
+continueBtn.onclick = async ()=>{
   const username = input.value.trim();
-  if (!username) {
-    msg.textContent = "You must enter a username.";
-    return;
-  }
+  if(!username){ msg.textContent="Enter a username."; return; }
 
-  try {
+  try{
     const snap = await get(playerRef);
-    if (!snap.exists() || snap.val() === null) {
-      msg.textContent = "You are not in the database.";
-      return;
-    }
-
+    if(!snap.exists()){ msg.textContent="You are not in the database."; return; }
     const data = snap.val();
-    if (data.banned) {
-      document.body.innerHTML = `
-        <h1 style="margin-top:20%;color:red;">🚫 You are banned</h1>
-        <p>You cannot access this site.</p>
-      `;
-      return;
-    }
+    if(data.banned){document.body.innerHTML=`<h1 style="margin-top:20%;color:red;">🚫 You are banned</h1><p>You cannot access this site.</p>`; return;}
+    if(data.username!==username){ msg.textContent="Username does not match our records!"; return; }
 
-    if (data.username !== username) {
-      msg.textContent = "Username does not match our records!";
-      return;
-    }
-
-    // Update lastSeen and disconnect Firebase
-    await update(playerRef, { lastSeen: new Date().toISOString() });
+    await update(playerRef,{lastSeen:new Date().toISOString()});
     goOffline(db);
 
-    // Launch game
-    setupBox.style.display = "none";
-    iframe.style.display = "block";
-
-  } catch (err) {
-    console.error(err);
-    msg.textContent = "Error checking your account.";
-  }
+    setupBox.style.display="none"; iframe.style.display="block";
+  }catch(err){ console.error(err); msg.textContent="Error checking your account."; }
 };
 </script>
-
 </body>
 </html>
