@@ -46,12 +46,12 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 let userId = localStorage.getItem("userId");
-if (!userId) {
+if(!userId){
   userId = crypto.randomUUID();
   localStorage.setItem("userId", userId);
 }
 
-function getPlayerRef(){
+function playerRef(){
   return ref(db, "players/" + userId);
 }
 
@@ -62,7 +62,7 @@ const input = document.getElementById("usernameInput");
 const saveBtn = document.getElementById("saveBtn");
 const continueBtn = document.getElementById("continueBtn");
 
-/* bannedWords + helper functions stay same */
+// bannedWords stays same
 
 function containsBadWord(username){
   const lower = username.toLowerCase();
@@ -81,14 +81,14 @@ function isSimilar(name, word){
   return diff===1;
 }
 
-// Load player
-get(getPlayerRef()).then(snap=>{
+// Load existing account if exists
+get(playerRef()).then(snap=>{
   if(!snap.exists()) return;
   const data = snap.val();
   if(data.banned){
-    document.body.innerHTML=`<h1 style="margin-top:20%;color:red;">🚫 You are banned</h1><p>You cannot access this site.</p>`;
+    document.body.innerHTML=`<h1 style="margin-top:20%;color:red;">🚫 You are banned</h1>`;
   }
-  if(data.username) input.value=data.username;
+  if(data.username) input.value = data.username;
 });
 
 saveBtn.onclick = async ()=>{
@@ -108,24 +108,25 @@ saveBtn.onclick = async ()=>{
       }
     }
 
-    if(existingKey && existingKey !== userId){
+    if(existingKey){
+      // LINK to existing account
       userId = existingKey;
       localStorage.setItem("userId", userId);
     }
 
-    await update(getPlayerRef(),{
+    // CREATE or UPDATE account
+    await update(playerRef(),{
       username: username,
-      lastUpdated: new Date().toISOString(),
       active: true,
-      banned: false
+      banned: false,
+      lastUpdated: new Date().toISOString()
     });
 
     msg.style.color="#80ff80";
-    msg.textContent="Username linked!";
+    msg.textContent = existingKey ? "Account linked!" : "Account created!";
   }catch(err){
-    msg.style.color="#ff8080";
-    msg.textContent="Error saving username.";
     console.error(err);
+    msg.textContent="Error saving username.";
   }
 };
 
@@ -134,34 +135,35 @@ continueBtn.onclick = async ()=>{
   if(!username){ msg.textContent="Enter a username."; return; }
 
   try{
-    const snap = await get(getPlayerRef());
+    const snap = await get(playerRef());
     if(!snap.exists()){
-      msg.textContent="You are not in the database.";
+      msg.textContent="Click Update Username first.";
       return;
     }
 
     const data = snap.val();
     if(data.banned){
-      document.body.innerHTML=`<h1 style="margin-top:20%;color:red;">🚫 You are banned</h1><p>You cannot access this site.</p>`;
+      document.body.innerHTML=`<h1 style="margin-top:20%;color:red;">🚫 You are banned</h1>`;
       return;
     }
 
     if(data.username.toLowerCase() !== username.toLowerCase()){
-      msg.textContent="Username does not match our records!";
+      msg.textContent="Username does not match!";
       return;
     }
 
-    await update(getPlayerRef(),{lastSeen:new Date().toISOString()});
+    await update(playerRef(),{ lastSeen:new Date().toISOString() });
     goOffline(db);
 
     setupBox.style.display="none";
     iframe.style.display="block";
   }catch(err){
     console.error(err);
-    msg.textContent="Error checking your account.";
+    msg.textContent="Database error.";
   }
 };
 </script>
+
 
 </body>
 </html>
