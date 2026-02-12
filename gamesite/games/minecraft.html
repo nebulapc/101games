@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minecraft Portal</title>
+<style>
+  body { margin:0; font-family:Arial,sans-serif; background:#0f0f14; color:white; text-align:center; }
+  #setupBox { margin-top:120px; }
+  input { padding:10px; font-size:18px; }
+  button { padding:10px 20px; font-size:18px; margin:5px; cursor:pointer; }
+  iframe { width:100vw; height:100vh; border:none; display:none; }
+  #msg { margin-top:15px; color:#ff8080; }
+</style>
+</head>
+<body>
+
+<div id="setupBox">
+  <h1>Welcome</h1>
+  <p>Enter or confirm your Minecraft username</p>
+  <input id="usernameInput" placeholder="Minecraft Username">
+  <br><br>
+  <button id="saveBtn">Update Username</button>
+  <button id="continueBtn">Continue</button>
+  <p id="msg"></p>
+</div>
+
+<iframe id="gameFrame" src="https://4jwhspmk-8081.use2.devtunnels.ms/"></iframe>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, get, update, goOffline } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDmcFEoCa9W1mDXDHE8WUo4tOycLSoxneE",
+  authDomain: "nebulakc-e0459.firebaseapp.com",
+  databaseURL: "https://nebulakc-e0459-default-rtdb.firebaseio.com",
+  projectId: "nebulakc-e0459",
+  storageBucket: "nebulakc-e0459.firebasestorage.app",
+  messagingSenderId: "661377108410",
+  appId: "1:661377108410:web:34acdbb2874470750ff583",
+  measurementId: "G-3MC79LHPFD"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let userId = localStorage.getItem("userId");
+if(!userId){
+  userId = crypto.randomUUID();
+  localStorage.setItem("userId", userId);
+}
+
+function playerRef(){
+  return ref(db, "players/" + userId);
+}
+
+const setupBox = document.getElementById("setupBox");
+const iframe = document.getElementById("gameFrame");
+const msg = document.getElementById("msg");
+const input = document.getElementById("usernameInput");
+const saveBtn = document.getElementById("saveBtn");
+const continueBtn = document.getElementById("continueBtn");
+
+// bannedWords stays same
+const bannedWords = ["ahole","anus","ash0le","ash0les","asholes","ass","asshole","assholes","bastard","bitch","cock","cum","cunt","dick","dildo","fag","fuck","gay","jerk-off","jizz","nazi","nigga","nigger","penis","porn","pussy","queer","retard","sex","shit","slut","tit","vagina","whore","xxx"];
+
+
+function containsBadWord(username){
+  const lower = username.toLowerCase();
+  for(const w of bannedWords){
+    if(lower.includes(w) || isSimilar(lower,w)) return true;
+  }
+  return false;
+}
+function isSimilar(name, word){
+  if(name.length!==word.length) return false;
+  let diff=0;
+  for(let i=0;i<name.length;i++){
+    if(name[i]!==word[i]) diff++;
+    if(diff>1) return false;
+  }
+  return diff===1;
+}
+
+// Load existing account if exists
+get(playerRef()).then(snap=>{
+  if(!snap.exists()) return;
+  const data = snap.val();
+  if(data.banned){
+    document.body.innerHTML=`<h1 style="margin-top:20%;color:red;">🚫 You are banned</h1>`;
+  }
+  if(data.username) input.value = data.username;
+});
+
+saveBtn.onclick = async ()=>{
+  const username = input.value.trim();
+  if(!username){ msg.textContent="Enter a username."; return; }
+  if(containsBadWord(username)){ msg.textContent="Username contains banned words!"; return; }
+
+  try{
+    const allPlayersSnap = await get(ref(db,"players"));
+    const values = allPlayersSnap.val() || {};
+    let existingKey = null;
+
+    for(const key in values){
+      if(values[key].username?.toLowerCase() === username.toLowerCase()){
+        existingKey = key;
+        break;
+      }
+    }
+
+    if(existingKey){
+      // LINK to existing account
+      userId = existingKey;
+      localStorage.setItem("userId", userId);
+    }
+
+    // CREATE or UPDATE account
+    await update(playerRef(),{
+      username: username,
+      active: true,
+      banned: false,
+      lastUpdated: new Date().toISOString()
+    });
+
+    msg.style.color="#80ff80";
+    msg.textContent = existingKey ? "Account linked!" : "Account created!";
+  }catch(err){
+    console.error(err);
+    msg.textContent="Error saving username.";
+  }
+};
+
+continueBtn.onclick = async ()=>{
+  const username = input.value.trim();
+  if(!username){ msg.textContent="Enter a username."; return; }
+
+  try{
+    const snap = await get(playerRef());
+    if(!snap.exists()){
+      msg.textContent="Click Update Username first.";
+      return;
+    }
+
+    const data = snap.val();
+    if(data.banned){
+      document.body.innerHTML=`<h1 style="margin-top:20%;color:red;">🚫 You are banned</h1>`;
+      return;
+    }
+
+    if(data.username.toLowerCase() !== username.toLowerCase()){
+      msg.textContent="Username does not match!";
+      return;
+    }
+
+    await update(playerRef(),{ lastSeen:new Date().toISOString() });
+    goOffline(db);
+
+    setupBox.style.display="none";
+    iframe.style.display="block";
+  }catch(err){
+    console.error(err);
+    msg.textContent="Database error.";
+  }
+};
+</script>
+
+
+</body>
+</html>

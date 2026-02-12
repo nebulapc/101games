@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>101 Games</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+    <div class="loader-logo">101 GAMES</div>
+    <div class="loader-line"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+    <header class="top-bar">
+        <div class="brand">101 GAMES</div>
+        <input id="searchInput" class="search-box" placeholder="Search games...">
+        <button id="settingsBtn" class="settings-btn">⚙️</button>
+    </header>
+
+    <main>
+        <h2 class="featured-title">⭐ Featured Games</h2>
+        <div class="grid-container featured-grid" id="featuredGrid"></div>
+
+        <h2 class="normal-title">All Games</h2>
+        <div class="grid-container" id="gameGrid"></div>
+    </main>
+</div>
+
+<!-- GAME OVERLAY -->
+<div id="game-overlay">
+    <div class="overlay-nav">
+        <div class="back-btn" id="backBtn">← Back</div>
+        <div id="gameTitleDisplay"></div>
+        <div style="width:80px;"></div>
+    </div>
+    <iframe id="gameFrame"></iframe>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div id="settingsPanel">
+    <div class="settings-header">
+        <span>Settings</span>
+        <button id="closeSettings">✖️</button>
+    </div>
+    <div class="settings-content">
+        <h3>Display Options</h3>
+        <label>
+            Dark Mode:
+            <input type="checkbox" id="darkModeToggle">
+        </label>
+        <h3>Other Settings</h3>
+        <p>More options coming soon!</p>
+    </div>
+</div>
+
+<script src="games.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
